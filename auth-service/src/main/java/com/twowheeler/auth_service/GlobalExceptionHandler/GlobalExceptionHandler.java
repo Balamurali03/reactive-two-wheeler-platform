@@ -1,15 +1,18 @@
 package com.twowheeler.auth_service.GlobalExceptionHandler;
 
 import java.time.Instant;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.twowheeler.auth_service.CustomException.AccessDeniedException;
 import com.twowheeler.auth_service.CustomException.DuplicateUsernameException;
 import com.twowheeler.auth_service.CustomException.InvalidCredentialsException;
 import com.twowheeler.auth_service.CustomException.TokenExpiredException;
+import com.twowheeler.auth_service.CustomException.UserBlockedException;
 import com.twowheeler.auth_service.Dto.Response.ErrorResponse;
 
 import reactor.core.publisher.Mono;
@@ -58,4 +61,17 @@ public class GlobalExceptionHandler {
     public Mono<ResponseEntity<ErrorResponse>> handleRuntime(RuntimeException ex) {
         return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleAccessDenied(
+            AccessDeniedException ex) {
+        return buildErrorResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(UserBlockedException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleUserBlockedException(
+            UserBlockedException ex) {
+        return buildErrorResponse(HttpStatus.METHOD_NOT_ALLOWED, ex.getMessage());
+    }
+
 }
