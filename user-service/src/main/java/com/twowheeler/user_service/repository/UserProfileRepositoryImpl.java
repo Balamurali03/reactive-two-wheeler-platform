@@ -19,7 +19,7 @@ public class UserProfileRepositoryImpl implements UserProfileRepository {
         this.table = DynamoDbEnhancedAsyncClient.builder()
                 .dynamoDbClient(client)
                 .build()
-                .table("UserProfile", TableSchema.fromBean(UserProfile.class));
+                .table("userprofile", TableSchema.fromBean(UserProfile.class));
     }
 
     public Mono<UserProfile> save(UserProfile profile) {
