@@ -5,6 +5,5 @@ public enum UserRole {
     USER,
     OWNER,
     OPERATOR,
-    ADMIN,
-    DRIVER
+    ADMIN
 }
