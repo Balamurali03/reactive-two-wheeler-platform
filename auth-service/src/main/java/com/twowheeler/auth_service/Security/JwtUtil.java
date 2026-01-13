@@ -24,6 +24,7 @@ public class JwtUtil {
 
     public String generateAccessToken(String username, List<String> roles) {
         return Jwts.builder()
+                .setIssuer("auth-service")
                 .setSubject(username)
                 .claim("roles", roles)
                 .setIssuedAt(new Date())
@@ -33,12 +34,12 @@ public class JwtUtil {
 
     }
 
-    public Claims parseClaims(String token){
+    public Claims parseClaims(String token) {
         return Jwts.parserBuilder()
-        .setSigningKey(key)
-        .build()
-        .parseClaimsJws(token)
-        .getBody();
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     public String getUsername(String token) {
@@ -46,15 +47,15 @@ public class JwtUtil {
     }
 
     @SuppressWarnings("unchecked")
-    public List<String> getRoles(String token){
-        return parseClaims(token).get("roles",List.class);
+    public List<String> getRoles(String token) {
+        return parseClaims(token).get("roles", List.class);
     }
 
-    public boolean validateToken(String token){
+    public boolean validateToken(String token) {
         try {
             parseClaims(token);
             return true;
-        } catch(JwtException | IllegalArgumentException ex){
+        } catch (JwtException | IllegalArgumentException ex) {
             return false;
         }
     }

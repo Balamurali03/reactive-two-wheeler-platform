@@ -1,13 +1,43 @@
 version: "3.9"
 
 services:
+
+  dynamodb-local:
+    image: amazon/dynamodb-local
+    container_name: dynamodb-local
+    command: "-jar DynamoDBLocal.jar -sharedDb"
+    ports:
+      - "8000:8000"
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: dummy
+      AWS_SECRET_ACCESS_KEY: dummy
+      DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+    depends_on:
+      - dynamodb-local
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    ports:
+      - "8082:8082"
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: dummy
+      AWS_SECRET_ACCESS_KEY: dummy
+      DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+    depends_on:
+      - dynamodb-local
+
   kong:
     image: kong:3.6
     container_name: kong
-    networks:
-      - platform-net
-    volumes:
-      - ./kong/kong.yml:/usr/local/kong/declarative/kong.yml:ro
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml
@@ -15,7 +45,8 @@ services:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: 0.0.0.0:9001
+    volumes:
+      - ./kong/kong.yml:/usr/local/kong/declarative/kong.yml
     ports:
       - "9000:8000"
       - "9001:9001"
@@ -23,22 +54,6 @@ services:
       - auth-service
       - user-service
 
-  auth-service:
-    image: auth-service:latest
-    container_name: auth-service
-    networks:
-      - platform-net
-    ports:
-      - "8081:8081"
-
-  user-service:
-    image: user-service:latest
-    container_name: user-service
-    networks:
-      - platform-net
-    ports:
-      - "8082:8082"
-
-networks:
-  platform-net:
+networks: 
+  platform-net: 
     driver: bridge

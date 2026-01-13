@@ -1,5 +1,8 @@
 _format_version: "3.0"
 
+############################
+# SERVICES & ROUTES
+############################
 services:
   - name: auth-service
     url: http://auth-service:8081
@@ -16,13 +19,29 @@ services:
         paths:
           - /users
         strip_path: false
-        plugins:
-          - name: jwt
 
-# Global JWT config (shared by protected services)
+############################
+# CONSUMERS
+############################
+consumers:
+  - username: auth-service
+
+############################
+# JWT CREDENTIALS
+############################
+jwt_secrets:
+  - consumer: auth-service
+    key: auth-service        # MUST match `iss`
+    algorithm: HS256
+    secret: THIS_IS_A_256_BIT_SECRET_KEY_FOR_JWT_SIGNING_123456
+
+############################
+# PLUGINS
+############################
 plugins:
   - name: jwt
+    service: user-service
     config:
-      key_claim_name: kid
+      key_claim_name: iss
       claims_to_verify:
         - exp
