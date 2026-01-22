@@ -32,7 +32,7 @@ public class VehicleHandler {
                 );
     }
 
-    // 🔍 Get vehicle by ID
+    
     public Mono<ServerResponse> getVehicleById(ServerRequest request) {
         String vehicleId = request.pathVariable("vehicleId");
         log.info("Get vehicle request vehicleId={}", vehicleId);
