@@ -35,6 +35,19 @@ services:
     depends_on:
       - dynamodb-local
 
+  vehicle-service:
+    build: ./vehicle-service
+    container_name: vehicle-service
+    ports:
+      - "8083:8083"
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: dummy
+      AWS_SECRET_ACCESS_KEY: dummy
+      DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+    depends_on:
+      - dynamodb-local
+
   kong:
     image: kong:3.6
     container_name: kong
@@ -53,7 +66,8 @@ services:
     depends_on:
       - auth-service
       - user-service
+      - vehicle-service
 
-networks: 
-  platform-net: 
+networks:
+  platform-net:
     driver: bridge

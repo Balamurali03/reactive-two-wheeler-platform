@@ -2,10 +2,9 @@ package com.twowheeler.user_service.handler;
 
 import com.twowheeler.user_service.customException.BadRequestException;
 import com.twowheeler.user_service.customException.UnauthorizedException;
-import com.twowheeler.user_service.customException.UserAlreadyExistsException;
 import com.twowheeler.user_service.customException.UserNotFoundException;
 import com.twowheeler.user_service.dto.*;
-import com.twowheeler.user_service.model.UserProfile;
+import com.twowheeler.user_service.kafka.UserStatusProducer;
 import com.twowheeler.user_service.repository.UserProfileRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,79 +21,106 @@ public class UserHandler {
     private static final Logger log = LoggerFactory.getLogger(UserHandler.class);
 
     private final UserProfileRepository repository;
+    private final UserStatusProducer statusProducer;
 
-    public UserHandler(UserProfileRepository repository) {
+    public UserHandler(
+            UserProfileRepository repository,
+            UserStatusProducer statusProducer
+    ) {
         this.repository = repository;
+        this.statusProducer = statusProducer;
     }
 
-    public Mono<ServerResponse> createProfile(ServerRequest request) {
+    /* ================= UPDATE PROFILE ================= */
 
-        log.info("➡️  Create profile request received");
+    public Mono<ServerResponse> updateProfile(ServerRequest request) {
+
+        log.info("➡️ Update profile request received");
 
         String userId = request.headers().firstHeader("X-User-Id");
-        String role = request.headers().firstHeader("X-User-Role");
+        String roleHeader = request.headers().firstHeader("X-User-Role");
 
-        if (userId == null || role == null) {
-            log.warn("❌ Missing auth headers while creating profile");
+        if (userId == null || roleHeader == null) {
+            log.warn("❌ Missing auth headers while updating profile");
             return Mono.error(new UnauthorizedException("Missing authentication headers"));
         }
-
-        log.debug("Auth headers validated for userId={}, role={}", userId, role);
 
         return request.bodyToMono(CreateUserProfileRequest.class)
                 .switchIfEmpty(Mono.error(
                         new BadRequestException("Request body is missing")))
-                .flatMap(req -> {
+                .flatMap(req ->
+                        repository.findByUserId(userId)
+                                .switchIfEmpty(Mono.error(
+                                        new UserNotFoundException("User profile not found")))
+                                .flatMap(existing -> {
 
-                    log.debug("Validating create profile request for userId={}", userId);
+                                    boolean roleChanged = false;
+                                    boolean statusChanged = false;
 
-                    if (req.name() == null || req.email() == null || req.phone() == null) {
-                        log.warn("❌ Invalid create profile request for userId={}", userId);
-                        return Mono.error(
-                                new BadRequestException("Name, email and phone are required"));
-                    }
+                                    /* 🔁 ROLE CHANGE CHECK */
+                                    if (req.role() != null
+                                            && !existing.getRole().equals(req.role())) {
 
-                    return repository.findByUserId(userId)
-                            .flatMap(existing -> {
-                                log.warn("❌ User profile already exists for userId={}", userId);
-                                return Mono.<UserProfile>error(
-                                        new UserAlreadyExistsException(
-                                                "User profile already exists"));
-                            })
-                            .switchIfEmpty(Mono.defer(() -> {
-                                log.info("✅ Creating new user profile for userId={}", userId);
+                                        log.info("🔄 Role change detected for userId={}", userId);
+                                        existing.setRole(req.role());
+                                        roleChanged = true;
+                                    }
 
-                                UserProfile profile = new UserProfile();
-                                profile.setUserId(userId);
-                                profile.setName(req.name());
-                                profile.setEmail(req.email());
-                                profile.setPhone(req.phone());
-                                profile.setRole(role);
-                                profile.setCreatedAt(Instant.now().toEpochMilli());
-                                profile.setUpdatedAt(Instant.now().toEpochMilli());
+                                    /* 🔁 STATUS CHANGE CHECK */
+                                    if (req.status() != null
+                                            && !existing.getStatus().equals(req.status())) {
 
-                                return repository.save(profile)
-                                        .doOnSuccess(p ->
-                                                log.info("🎉 User profile created successfully for userId={}", userId));
-                            }));
-                })
-                .flatMap(saved -> ServerResponse.status(HttpStatus.CREATED)
+                                        log.info("🔄 Status change detected for userId={}", userId);
+                                        existing.setStatus(req.status());
+                                        statusChanged = true;
+                                    }
+
+                                    /* ✏️ PROFILE FIELD UPDATES */
+                                    if (req.name() != null) existing.setName(req.name());
+                                    if (req.email() != null) existing.setEmail(req.email());
+                                    if (req.phone() != null) existing.setPhone(req.phone());
+                                    if (req.accountType() != null) existing.setAccountType(req.accountType());
+                                    if (req.userCategory() != null) existing.setUserCategory(req.userCategory());
+
+                                    existing.setUpdatedAt(Instant.now());
+
+                                    boolean shouldPublish = roleChanged || statusChanged;
+
+                                    return repository.update(existing)
+                                            .doOnSuccess(saved -> {
+                                                if (shouldPublish) {
+                                                    log.info(
+                                                            "📤 Publishing user status update event for userId={}",
+                                                            userId);
+                                                    statusProducer.publishStatusChange(
+                                                            userId,
+                                                            req.status(),
+                                                            req.role()
+                                                    );
+                                                }
+                                            });
+                                })
+                )
+                .flatMap(saved -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(new UserProfileResponse(
                                 saved.getUserId(),
                                 saved.getName(),
                                 saved.getEmail(),
                                 saved.getPhone(),
-                                saved.getRole()
+                                saved.getRole(),
+                                saved.getAccountType(),
+                                saved.getUserCategory()
                         )))
                 .doOnError(e ->
-                        log.error("🔥 Failed to create user profile", e));
+                        log.error("🔥 Failed to update user profile", e));
     }
 
+    /* ================= GET ME ================= */
 
     public Mono<ServerResponse> getMe(ServerRequest request) {
 
-        log.info("➡️  Get profile request received");
+        log.info("➡️ Get profile request received");
 
         String userId = request.headers().firstHeader("X-User-Id");
 
@@ -103,24 +129,55 @@ public class UserHandler {
             return Mono.error(new UnauthorizedException("Missing authentication headers"));
         }
 
-        log.debug("Fetching user profile for userId={}", userId);
-
         return repository.findByUserId(userId)
                 .switchIfEmpty(Mono.error(
                         new UserNotFoundException("User profile not found")))
-                .flatMap(profile -> {
-                    log.info("✅ User profile found for userId={}", userId);
-                    return ServerResponse.ok()
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(new UserProfileResponse(
-                                    profile.getUserId(),
-                                    profile.getName(),
-                                    profile.getEmail(),
-                                    profile.getPhone(),
-                                    profile.getRole()
-                            ));
-                })
+                .flatMap(profile -> ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(new UserProfileResponse(
+                                profile.getUserId(),
+                                profile.getName(),
+                                profile.getEmail(),
+                                profile.getPhone(),
+                                profile.getRole(),
+                                profile.getAccountType(),
+                                profile.getUserCategory()
+                        )))
                 .doOnError(e ->
                         log.error("🔥 Failed to fetch user profile for userId={}", userId, e));
     }
+
+    public Mono<ServerResponse> getAllUsers(ServerRequest request) {
+
+    log.info("➡️  Get all users request received");
+
+    String role = request.headers().firstHeader("X-User-Role");
+
+    if (role == null) {
+        return Mono.error(new UnauthorizedException("Missing role header"));
+    }
+
+    if (!role.equals("ADMIN") && !role.equals("OPERATOR")) {
+        return Mono.error(new UnauthorizedException("Access denied"));
+    }
+
+    return repository.findAll()
+        .map(user -> new UserProfileResponse(
+            user.getUserId(),
+            user.getName(),
+            user.getEmail(),
+            user.getPhone(),
+            user.getRole(),
+            user.getAccountType(),
+            user.getUserCategory()
+        ))
+        .collectList()
+        .flatMap(list ->
+            ServerResponse.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(list)
+        )
+        .doOnError(e -> log.error("🔥 Failed to fetch user list", e));
+}
+
 }

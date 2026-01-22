@@ -12,8 +12,9 @@ public class UserRouter {
     @Bean
     public RouterFunction<ServerResponse> routes(UserHandler handler) {
         return RouterFunctions.route()
-                .POST("/users", handler::createProfile)
+                .POST("/users", handler::updateProfile)
                 .GET("/users/me", handler::getMe)
+                .GET("/users", handler ::getAllUsers)
                 .build();
     }
 }

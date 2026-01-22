@@ -4,6 +4,7 @@ import org.springframework.stereotype.Repository;
 
 import com.twowheeler.user_service.model.UserProfile;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbAsyncTable;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedAsyncClient;
@@ -32,6 +33,22 @@ public class UserProfileRepositoryImpl implements UserProfileRepository {
         return Mono.fromFuture(
                 table.getItem(Key.builder().partitionValue(userId).build())
         );
+    }
+
+    @Override
+    public Mono<UserProfile> update(UserProfile profile) {
+        return Mono.fromCallable(() -> {
+            table.updateItem(profile);
+            return profile;
+        });
+    }
+
+    @Override
+    public Flux<UserProfile> findAll() {
+        return Flux.from((
+            table.scan().items()
+        )
+    );
     }
 }
 

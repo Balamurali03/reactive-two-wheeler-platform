@@ -1,5 +1,7 @@
 package com.twowheeler.auth_service.Model;
 
+import java.time.Instant;
+
 import com.twowheeler.auth_service.Annotation.DynamoTable;
 
 import lombok.AllArgsConstructor;
@@ -18,7 +20,7 @@ public class RefreshToken {
     private String token;
     private String userId;
     private Long expiryTime;
-    private Long createdAt;
+    private Instant createdAt;
 
     @DynamoDbPartitionKey
     public String getToken() {

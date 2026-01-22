@@ -20,20 +20,23 @@ services:
           - /users
         strip_path: false
 
+  - name: vehicle-service
+    url: http://vehicle-service:8083
+    routes:
+      - name: vehicle-routes
+        paths:
+          - /vehicles
+        strip_path: false
+
 ############################
-# CONSUMERS
+# CONSUMERS + JWT (DB-LESS)
 ############################
 consumers:
   - username: auth-service
-
-############################
-# JWT CREDENTIALS
-############################
-jwt_secrets:
-  - consumer: auth-service
-    key: auth-service        # MUST match `iss`
-    algorithm: HS256
-    secret: THIS_IS_A_256_BIT_SECRET_KEY_FOR_JWT_SIGNING_123456
+    jwt_secrets:
+      - key: auth-service          # MUST match JWT `iss`
+        algorithm: HS256
+        secret: THIS_IS_A_256_BIT_SECRET_KEY_FOR_JWT_SIGNING_123456
 
 ############################
 # PLUGINS
@@ -41,6 +44,13 @@ jwt_secrets:
 plugins:
   - name: jwt
     service: user-service
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+
+  - name: jwt
+    service: vehicle-service
     config:
       key_claim_name: iss
       claims_to_verify:

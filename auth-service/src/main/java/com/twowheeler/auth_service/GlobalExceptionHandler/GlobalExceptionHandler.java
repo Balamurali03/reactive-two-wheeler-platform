@@ -1,7 +1,6 @@
 package com.twowheeler.auth_service.GlobalExceptionHandler;
 
 import java.time.Instant;
-import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -5,5 +5,5 @@ public enum Roles {
     USER,
     ADMIN,
     OPERATOR,
-    SERVICE
+    OWNER
 }
