@@ -2,6 +2,7 @@ version: "3.9"
 
 services:
 
+  ################ DYNAMODB ################
   dynamodb-local:
     image: amazon/dynamodb-local
     container_name: dynamodb-local
@@ -9,6 +10,29 @@ services:
     ports:
       - "8000:8000"
 
+  ################ KAFKA ################
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  ################ AUTH SERVICE ################
   auth-service:
     build: ./auth-service
     container_name: auth-service
@@ -19,9 +43,12 @@ services:
       AWS_ACCESS_KEY_ID: dummy
       AWS_SECRET_ACCESS_KEY: dummy
       DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       - dynamodb-local
+      - kafka
 
+  ################ USER SERVICE ################
   user-service:
     build: ./user-service
     container_name: user-service
@@ -32,9 +59,12 @@ services:
       AWS_ACCESS_KEY_ID: dummy
       AWS_SECRET_ACCESS_KEY: dummy
       DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       - dynamodb-local
+      - kafka
 
+  ################ VEHICLE SERVICE ################
   vehicle-service:
     build: ./vehicle-service
     container_name: vehicle-service
@@ -45,9 +75,12 @@ services:
       AWS_ACCESS_KEY_ID: dummy
       AWS_SECRET_ACCESS_KEY: dummy
       DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       - dynamodb-local
+      - kafka
 
+  ################ KONG ################
   kong:
     image: kong:3.6
     container_name: kong

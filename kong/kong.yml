@@ -1,9 +1,11 @@
 _format_version: "3.0"
 
 ############################
-# SERVICES & ROUTES
+# SERVICES
 ############################
 services:
+
+  ################ AUTH ################
   - name: auth-service
     url: http://auth-service:8081
     routes:
@@ -12,46 +14,142 @@ services:
           - /auth
         strip_path: false
 
+
+  ################ USER ################
   - name: user-service
     url: http://user-service:8082
     routes:
-      - name: user-routes
+
+      - name: user-update-profile
         paths:
           - /users
+        methods: [POST]
         strip_path: false
 
+      - name: user-me
+        paths:
+          - /users/me
+        methods: [GET]
+        strip_path: false
+
+      - name: user-get-all
+        paths:
+          - /users
+        methods: [GET]
+        strip_path: false
+
+
+  ################ VEHICLE ################
   - name: vehicle-service
     url: http://vehicle-service:8083
     routes:
-      - name: vehicle-routes
+
+      - name: vehicle-create
         paths:
           - /vehicles
+        methods: [POST]
         strip_path: false
 
+      - name: vehicle-my
+        paths:
+          - /vehicles/my
+        methods: [GET]
+        strip_path: false
+
+      - name: vehicle-by-id
+        paths:
+          - /vehicles/
+        methods: [GET]
+        strip_path: false
+
+      - name: vehicle-get-all
+        paths:
+          - /vehicles
+        methods: [GET]
+        strip_path: false
+
+
 ############################
-# CONSUMERS + JWT (DB-LESS)
+# CONSUMERS (ROLES)
 ############################
 consumers:
+
+  - username: user
+    acls:
+      - group: user
+
+  - username: owner
+    acls:
+      - group: owner
+
+  - username: operator
+    acls:
+      - group: operator
+
+  - username: admin
+    acls:
+      - group: admin
+
   - username: auth-service
     jwt_secrets:
-      - key: auth-service          # MUST match JWT `iss`
+      - key: auth-service
         algorithm: HS256
         secret: THIS_IS_A_256_BIT_SECRET_KEY_FOR_JWT_SIGNING_123456
+
 
 ############################
 # PLUGINS
 ############################
 plugins:
+
+  ######## JWT ########
   - name: jwt
     service: user-service
     config:
       key_claim_name: iss
-      claims_to_verify:
-        - exp
+      claims_to_verify: [exp]
 
   - name: jwt
     service: vehicle-service
     config:
       key_claim_name: iss
-      claims_to_verify:
-        - exp
+      claims_to_verify: [exp]
+
+
+  ######## USER ACL ########
+  - name: acl
+    route: user-update-profile
+    config:
+      allow: [user, owner, operator, admin]
+
+  - name: acl
+    route: user-me
+    config:
+      allow: [user, owner, operator, admin]
+
+  - name: acl
+    route: user-get-all
+    config:
+      allow: [admin]
+
+
+  ######## VEHICLE ACL ########
+  - name: acl
+    route: vehicle-create
+    config:
+      allow: [owner, operator, admin]
+
+  - name: acl
+    route: vehicle-my
+    config:
+      allow: [owner, operator]
+
+  - name: acl
+    route: vehicle-by-id
+    config:
+      allow: [owner, operator, admin]
+
+  - name: acl
+    route: vehicle-get-all
+    config:
+      allow: [admin]
