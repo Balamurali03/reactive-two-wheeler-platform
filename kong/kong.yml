@@ -14,7 +14,6 @@ services:
           - /auth
         strip_path: false
 
-
   ################ USER ################
   - name: user-service
     url: http://user-service:8082
@@ -38,7 +37,6 @@ services:
         methods: [GET]
         strip_path: false
 
-
   ################ VEHICLE ################
   - name: vehicle-service
     url: http://vehicle-service:8083
@@ -58,7 +56,7 @@ services:
 
       - name: vehicle-by-id
         paths:
-          - /vehicles/
+          - /vehicles
         methods: [GET]
         strip_path: false
 
@@ -77,22 +75,32 @@ consumers:
   - username: user
     acls:
       - group: user
+    jwt_secrets:
+      - key: user
+        algorithm: HS256
+        secret: THIS_IS_A_256_BIT_SECRET_KEY_FOR_JWT_SIGNING_123456
 
   - username: owner
     acls:
       - group: owner
+    jwt_secrets:
+      - key: owner
+        algorithm: HS256
+        secret: THIS_IS_A_256_BIT_SECRET_KEY_FOR_JWT_SIGNING_123456
 
   - username: operator
     acls:
       - group: operator
+    jwt_secrets:
+      - key: operator
+        algorithm: HS256
+        secret: THIS_IS_A_256_BIT_SECRET_KEY_FOR_JWT_SIGNING_123456
 
   - username: admin
     acls:
       - group: admin
-
-  - username: auth-service
     jwt_secrets:
-      - key: auth-service
+      - key: admin
         algorithm: HS256
         secret: THIS_IS_A_256_BIT_SECRET_KEY_FOR_JWT_SIGNING_123456
 
@@ -100,6 +108,7 @@ consumers:
 ############################
 # PLUGINS
 ############################
+
 plugins:
 
   ######## JWT ########
@@ -107,49 +116,69 @@ plugins:
     service: user-service
     config:
       key_claim_name: iss
-      claims_to_verify: [exp]
+      claims_to_verify:
+        - exp
 
   - name: jwt
     service: vehicle-service
     config:
       key_claim_name: iss
-      claims_to_verify: [exp]
+      claims_to_verify:
+        - exp
 
 
   ######## USER ACL ########
   - name: acl
     route: user-update-profile
     config:
-      allow: [user, owner, operator, admin]
+      allow:
+        - user
+        - owner
+        - operator
+        - admin
 
   - name: acl
     route: user-me
     config:
-      allow: [user, owner, operator, admin]
+      allow:
+        - user
+        - owner
+        - operator
+        - admin
 
   - name: acl
     route: user-get-all
     config:
-      allow: [admin]
+      allow:
+        - admin
 
 
   ######## VEHICLE ACL ########
   - name: acl
     route: vehicle-create
     config:
-      allow: [owner, operator, admin]
+      allow:
+        - owner
+        - operator
+        - admin
 
   - name: acl
     route: vehicle-my
     config:
-      allow: [owner, operator]
+      allow:
+        - owner
+        - operator
 
   - name: acl
     route: vehicle-by-id
     config:
-      allow: [owner, operator, admin]
+      allow:
+        - owner
+        - operator
+        - admin
 
   - name: acl
     route: vehicle-get-all
     config:
-      allow: [admin]
+      allow:
+        - admin

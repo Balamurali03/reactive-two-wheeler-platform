@@ -23,8 +23,9 @@ public class JwtUtil {
     private final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
 
     public String generateAccessToken(String username, List<String> roles) {
+        String primaryRole = roles.get(0).toLowerCase();
         return Jwts.builder()
-                .setIssuer("auth-service")
+                .setIssuer(primaryRole)
                 .setSubject(username)
                 .claim("roles", roles)
                 .setIssuedAt(new Date())
