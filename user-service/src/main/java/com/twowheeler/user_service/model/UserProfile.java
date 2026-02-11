@@ -5,7 +5,7 @@ import java.time.Instant;
 import com.twowheeler.user_service.enums.AccountType;
 import com.twowheeler.user_service.enums.Status;
 import com.twowheeler.user_service.enums.UserCategory;
-import com.twowheeler.user_service.enums.UserRole;
+import com.twowheeler.user_service.enums.Roles;
 
 import io.github.balamurali03.dynamodb.annotation.DynamoEntity;
 import lombok.Data;
@@ -20,7 +20,7 @@ public class UserProfile {
     private String name;
     private String email;
     private String phone;
-    private UserRole role;
+    private Roles role;
     private Status status;
     private Instant createdAt;
     private Instant updatedAt;

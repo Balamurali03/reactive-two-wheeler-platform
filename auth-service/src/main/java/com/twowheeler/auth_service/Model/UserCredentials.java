@@ -13,7 +13,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@DynamoTable(tableName = "UserCredentials")
+@DynamoTable(tableName = "user_credentials")
 @DynamoDbBean
 public class UserCredentials {
 

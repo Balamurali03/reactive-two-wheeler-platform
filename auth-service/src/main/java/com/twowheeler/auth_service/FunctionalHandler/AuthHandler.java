@@ -21,9 +21,10 @@ import com.twowheeler.auth_service.Dto.Request.LoginRequest;
 import com.twowheeler.auth_service.Dto.Request.RefreshTokenRequest;
 import com.twowheeler.auth_service.Dto.Request.RegisterRequest;
 import com.twowheeler.auth_service.Dto.Response.AuthResponse;
+import com.twowheeler.auth_service.Dto.Response.UserResponse;
 import com.twowheeler.auth_service.Enum.Roles;
 import com.twowheeler.auth_service.Enum.Status;
-import com.twowheeler.auth_service.Event.UserEventPublisher;
+import com.twowheeler.auth_service.Event.AuthEventProducer;
 import com.twowheeler.auth_service.Model.RefreshToken;
 import com.twowheeler.auth_service.Model.UserCredentials;
 import com.twowheeler.auth_service.Model.UserStatus;
@@ -41,7 +42,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class AuthHandler {
 
-        @Autowired
+    @Autowired
     private UserCredentialsRepository credentialsRepo;
     @Autowired
     private UserStatusRepository statusRepo;
@@ -52,18 +53,30 @@ public class AuthHandler {
     @Autowired
     private JwtUtil jwtUtil;
     @Autowired
-    private UserEventPublisher eventProducer;
+    private AuthEventProducer eventProducer;
+
+    public Mono<ServerResponse> welcome(ServerRequest request){
+
+        log.info("Application started and Welcome to the screen");
+        return ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue("Hello all this is auth service");
+    }
 
     /* ================= REGISTER ================= */
 
     public Mono<ServerResponse> register(ServerRequest request) {
 
+        log.info("AUTH_REGISTER_START");
+
         return request.bodyToMono(RegisterRequest.class)
-                .doOnSubscribe(s -> log.info("➡️ REGISTER request received"))
+                .doOnNext(req ->
+                        log.info("AUTH_REGISTER_REQUEST username={}", req.username()))
                 .flatMap(req -> {
 
-                    // ❌ Prevent privileged self-registration
                     if (req.role() != null && req.role() != Roles.USER) {
+                        log.warn("AUTH_REGISTER_FORBIDDEN_ROLE username={} role={}",
+                                req.username(), req.role());
                         return Mono.error(new AccessDeniedException(
                                 "Only USER role can be self-registered"));
                     }
@@ -71,6 +84,7 @@ public class AuthHandler {
                     return credentialsRepo.existsByUsername(req.username())
                             .flatMap(exists -> {
                                 if (exists) {
+                                    log.warn("AUTH_REGISTER_DUPLICATE username={}", req.username());
                                     return Mono.error(new DuplicateUsernameException(
                                             "Username already exists"));
                                 }
@@ -91,47 +105,52 @@ public class AuthHandler {
                                         userId,
                                         Status.ACTIVE,
                                         now
-                                       
                                 );
 
                                 return credentialsRepo.save(credentials)
                                         .then(statusRepo.save(status))
-                                        .doOnSuccess(v ->
-                                                eventProducer.publishUserRegistered(
-                                                        credentials))
-                                        .thenReturn(
-                                                new AuthResponse(
-                                                        userId,
-                                                        Roles.USER.name(),
-                                                        null,
-                                                        null
-                                                ));
+                                        .doOnSuccess(v -> {
+                                            log.info("AUTH_REGISTER_SUCCESS userId={} username={}",
+                                                    userId, req.username());
+                                            eventProducer.publishUserRegistered(userId,req.username(),Roles.USER);
+                                        })
+                                        .thenReturn(new UserResponse(
+                                                userId,
+                                                req.username(),
+                                                Roles.USER,
+                                                Instant.now()
+                                        ));
                             });
                 })
                 .flatMap(resp -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(resp))
-                .doOnError(e -> log.error("🔥 REGISTER failed", e));
+                .doOnError(e ->
+                        log.error("AUTH_REGISTER_FAILED reason={}", e.getMessage(), e));
     }
 
     /* ================= LOGIN ================= */
 
     public Mono<ServerResponse> login(ServerRequest request) {
 
+        log.info("AUTH_LOGIN_START");
+
         return request.bodyToMono(LoginRequest.class)
-                .doOnSubscribe(s -> log.info("➡️ LOGIN request received"))
+                .doOnNext(req ->
+                        log.info("AUTH_LOGIN_REQUEST username={}", req.username()))
                 .flatMap(req ->
                         credentialsRepo.findByUsername(req.username())
                                 .switchIfEmpty(Mono.error(
                                         new InvalidCredentialsException("Invalid credentials")))
                                 .flatMap(credentials ->
-
                                         statusRepo.findById(credentials.getUserId())
                                                 .switchIfEmpty(Mono.error(
                                                         new UserBlockedException("User status not found")))
                                                 .flatMap(status -> {
 
                                                     if (status.getStatus() != Status.ACTIVE) {
+                                                        log.warn("AUTH_LOGIN_BLOCKED userId={} status={}",
+                                                                credentials.getUserId(), status.getStatus());
                                                         return Mono.error(
                                                                 new UserBlockedException(
                                                                         "User is " + status.getStatus()));
@@ -140,6 +159,8 @@ public class AuthHandler {
                                                     if (!passwordEncoder.matches(
                                                             req.password(),
                                                             credentials.getPasswordHash())) {
+                                                        log.warn("AUTH_LOGIN_INVALID_PASSWORD username={}",
+                                                                req.username());
                                                         return Mono.error(
                                                                 new InvalidCredentialsException("Invalid credentials"));
                                                     }
@@ -161,26 +182,34 @@ public class AuthHandler {
                                                     );
 
                                                     return refreshTokenRepo.save(token)
-                                                            .thenReturn(
-                                                                    new AuthResponse(
+                                                            .doOnSuccess(v ->
+                                                                    log.info(
+                                                                            "AUTH_LOGIN_SUCCESS userId={} role={}",
                                                                             credentials.getUserId(),
-                                                                            credentials.getRole().name(),
-                                                                            accessToken,
-                                                                            refreshToken));
+                                                                            credentials.getRole()))
+                                                            .thenReturn(new AuthResponse(
+                                                                    credentials.getUserId(),
+                                                                    credentials.getRole().name(),
+                                                                    accessToken,
+                                                                    refreshToken));
                                                 })
                                 ))
                 .flatMap(resp -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(resp))
-                .doOnError(e -> log.error("🔥 LOGIN failed", e));
+                .doOnError(e ->
+                        log.error("AUTH_LOGIN_FAILED reason={}", e.getMessage(), e));
     }
 
     /* ================= REFRESH ================= */
 
     public Mono<ServerResponse> refresh(ServerRequest request) {
 
+        log.info("AUTH_REFRESH_START");
+
         return request.bodyToMono(RefreshTokenRequest.class)
-                .doOnSubscribe(s -> log.info("➡️ REFRESH request received"))
+                .doOnNext(req ->
+                        log.info("AUTH_REFRESH_REQUEST token={}", req.refreshToken()))
                 .flatMap(req ->
                         refreshTokenRepo.find(req.refreshToken())
                                 .switchIfEmpty(Mono.error(
@@ -188,24 +217,28 @@ public class AuthHandler {
                                 .flatMap(token -> {
 
                                     if (token.getExpiryTime() < Instant.now().getEpochSecond()) {
+                                        log.warn("AUTH_REFRESH_EXPIRED userId={}", token.getUserId());
                                         return refreshTokenRepo.delete(token.getToken())
                                                 .then(Mono.error(
                                                         new TokenExpiredException("Refresh token expired")));
                                     }
 
                                     return credentialsRepo.findById(token.getUserId())
-                                            .map(user ->
-                                                    new AuthResponse(
-                                                            user.getUserId(),
-                                                            user.getRole().name(),
-                                                            jwtUtil.generateAccessToken(
-                                                                    user.getUsername(),
-                                                                    List.of(user.getRole().name())),
-                                                            token.getToken()));
+                                            .map(user -> {
+                                                log.info("AUTH_REFRESH_SUCCESS userId={}", user.getUserId());
+                                                return new AuthResponse(
+                                                        user.getUserId(),
+                                                        user.getRole().name(),
+                                                        jwtUtil.generateAccessToken(
+                                                                user.getUsername(),
+                                                                List.of(user.getRole().name())),
+                                                        token.getToken());
+                                            });
                                 }))
                 .flatMap(resp -> ServerResponse.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(resp))
-                .doOnError(e -> log.error("🔥 REFRESH failed", e));
+                .doOnError(e ->
+                        log.error("AUTH_REFRESH_FAILED reason={}", e.getMessage(), e));
     }
 }

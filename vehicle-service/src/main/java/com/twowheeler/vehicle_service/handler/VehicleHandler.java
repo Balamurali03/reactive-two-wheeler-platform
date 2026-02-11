@@ -19,6 +19,15 @@ public class VehicleHandler {
         this.service = service;
     }
 
+    public Mono<ServerResponse> welcome(ServerRequest request){
+
+        log.info("Application started and Welcome to the screen");
+        return ServerResponse.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue("Hello all this is Vehicle service");
+    }
+
+
     // ➕ Create vehicle
     public Mono<ServerResponse> createVehicle(ServerRequest request) {
         String ownerId = request.headers().firstHeader("X-User-Id");

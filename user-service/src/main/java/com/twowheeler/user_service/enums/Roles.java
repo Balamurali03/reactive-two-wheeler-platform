@@ -1,9 +1,9 @@
 package com.twowheeler.user_service.enums;
 
-public enum UserRole {
+public enum Roles {
 
     USER,
-    OWNER,
+    ADMIN,
     OPERATOR,
-    ADMIN
+    OWNER
 }

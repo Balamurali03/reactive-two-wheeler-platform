@@ -15,6 +15,7 @@ public class UserRouter {
                 .POST("/users", handler::updateProfile)
                 .GET("/users/me", handler::getMe)
                 .GET("/users", handler ::getAllUsers)
+                .POST("/welcome/user", handler:: welcome)
                 .build();
     }
 }

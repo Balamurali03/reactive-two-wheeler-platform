@@ -2,9 +2,6 @@ package com.twowheeler.auth_service.Config;
 
 import org.springframework.context.annotation.Configuration;
 
-import com.twowheeler.auth_service.Model.UserCredentials;
-import com.twowheeler.auth_service.Model.UserStatus;
-
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
@@ -52,15 +49,15 @@ public class DynamoDbConfig {
 
     @Bean
     public DynamoDbTable<?> userCredentialsTable(DynamoDbEnhancedClient enhancedClient) {
-        return enhancedClient.table("usercredentials", TableSchema.fromBean(
-                UserCredentials.class));
+        return enhancedClient.table("user_credentials", TableSchema.fromBean(
+                com.twowheeler.auth_service.Model.UserCredentials.class));
 
     }
 
     @Bean
     public DynamoDbTable<?> userStatusTable(DynamoDbEnhancedClient enhancedClient) {
-        return enhancedClient.table("userstatus", TableSchema.fromBean(
-                UserStatus.class));
+        return enhancedClient.table("user_status", TableSchema.fromBean(
+                com.twowheeler.auth_service.Model.UserStatus.class));
 
     }
     

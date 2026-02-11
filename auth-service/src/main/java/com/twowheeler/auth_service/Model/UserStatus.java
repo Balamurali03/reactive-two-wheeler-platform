@@ -15,7 +15,7 @@ import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbParti
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@DynamoTable(tableName = "UserStatus")
+@DynamoTable(tableName = "user_status")
 @DynamoDbBean
 public class UserStatus {
 

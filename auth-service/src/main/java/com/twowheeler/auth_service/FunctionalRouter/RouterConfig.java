@@ -20,7 +20,8 @@ public class RouterConfig {
         return RouterFunctions
                 .route(POST("/auth/register"), handler::register)
                 .andRoute(POST("/auth/login"), handler::login)
-                .andRoute(POST("/auth/refresh"), handler::refresh);
+                .andRoute(POST("/auth/refresh"), handler::refresh)
+                .andRoute(POST("/welcome/auth"),handler::welcome);
     }
 
 }

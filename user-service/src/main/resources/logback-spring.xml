@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="true">
+
+    <springProperty scope="context"
+                    name="SERVICE_NAME"
+                    source="spring.application.name"/>
+
+    <!-- CONSOLE -->
+    <appender name="CONSOLE"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- SPLUNK HEC (CORRECT) -->
+    <appender name="SPLUNK"
+              class="com.splunk.logging.HttpEventCollectorLogbackAppender">
+
+        <url>${SPLUNK_HEC_URL}</url>
+        <token>${SPLUNK_TOKEN}</token>
+
+        <index>user_index</index>
+        <sourcetype>springboot</sourcetype>
+        <source>${SERVICE_NAME}</source>
+
+        <!-- REQUIRED: layout (NOT encoder) -->
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>
+                {"timestamp":"%d{ISO8601}","level":"%level","service":"${SERVICE_NAME}","logger":"%logger","thread":"%thread","message":"%msg"}
+            </pattern>
+        </layout>
+
+<batchSizeCount>1</batchSizeCount>
+    <batchInterval>0</batchInterval>
+    <disableCertificateValidation>true</disableCertificateValidation>
+
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="SPLUNK"/>
+    </root>
+
+</configuration>
